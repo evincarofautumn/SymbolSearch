@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Symbol Search</title>
+    <style>
+      body {
+        font-family: sans-serif;
+      }
+    </style>
+    <script>
+      function make(element) {
+        return document.createElement(element);
+      }
+      function makeText(text) {
+        return document.createTextNode(text);
+      }
+      var loaded_languages = {
+        Haskell: undefined,
+        JavaScript: undefined
+      };
+      function load_language(language, language_loaded) {
+        if (is_loaded(language))
+          return language_loaded();
+        var url = language + '.js';
+        var script = make('script');
+        document.body.appendChild(script);
+        script.async = true;
+        script.onload = language_loaded;
+        script.src = url;
+      }
+      function is_loaded(language) {
+        return typeof(loaded_languages[language]) !== 'undefined';
+      }
+      function escape_html(text) {
+        var text_node = makeText(text);
+        var html_node = make('div');
+        html_node.appendChild(text_node);
+        return html_node.innerHTML;
+      }
+      function render_result(name, result) {
+        var heading = make('h3');
+        var code = make('code');
+        code.innerHTML = escape_html(name);
+        heading.appendChild(code);
+        var description = make('p');
+        description.innerHTML = result.description;
+        var examples = make('ul');
+        result.examples.forEach(function(example) {
+          var element = make('li');
+          var description = make('p');
+          description.innerHTML = example.description;
+          element.appendChild(description);
+          var code = make('pre');
+          code.innerHTML = escape_html(example.code.join("\n"));
+          code = make('code').appendChild(code);
+          code = make('p').appendChild(code);
+          element.appendChild(code);
+          if (window.speechSynthesis
+            && typeof(example.pronunciation) !== 'undefined') {
+            var button = make('button');
+            var button_block = make('div');
+            button.innerHTML = "Pronounce";
+            button.onclick = function(e) {
+              var message = new SpeechSynthesisUtterance();
+              message.text = example.pronunciation;
+              message.volume = 1.0;
+              message.rate = 1.0;
+              message.pitch = 1.0;
+              window.speechSynthesis.speak(message);
+            };
+            button_block.appendChild(button);
+            element.appendChild(button_block);
+          }
+          examples.appendChild(element);
+        });
+        return [heading, description, examples];
+      }
+      function run_query(data, query) {
+        var results = document.getElementById('results');
+        var description = make('div');
+        var name = make('h2');
+        name.innerHTML = escape_html(data.metadata.name);
+        description.appendChild(name);
+        description.appendChild(
+          makeText(data.metadata.description));
+        var matches = typeof(data[query]) === 'undefined'
+          ? [makeText('No exact matches.')]
+          : render_result(query, data[query]);
+        while (results.firstChild)
+          results.removeChild(results.firstChild);
+        results.appendChild(description);
+        matches.forEach(function(match) {
+          results.appendChild(match);
+        });
+      }
+      function search() {
+        var form = document.forms[0];
+        var language = form.language.value;
+        var query = form.query.value;
+        function language_loaded() {
+          run_query(loaded_languages[language], query);
+        }
+        load_language(language, language_loaded);
+      }
+      function check_hash() {
+        if (typeof(location.hash) !== 'string')
+          return;
+        var language = location.hash.substring(1, 5);
+        var query = location.hash.substring(5);
+        console.log(location.hash, language, query);
+      }
+    </script>
+  </head>
+  <body onload="check_hash();">
+    <h1>Symbol Search</h1>
+    <p>Select a programming language, enter a symbol, and find out what it means
+      with documentation and examples.
+    <p>
+      <form onsubmit="search(); return false;">
+        <select id="language">
+          <option>Haskell</option>
+          <option>JavaScript</option>
+        </select>
+        <input id="query" type="text">
+        <input type="submit">
+      </form>
+      <div id="results"></div>
+  </body>
+</html>
